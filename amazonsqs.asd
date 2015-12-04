@@ -2,8 +2,8 @@
 
 (asdf:defsystem #:amazonsqs
   :description "Amazon Simple Queue Service CL client"
-  :author "Milan Jovanovic <your.name@example.com>"
-  :license "Specify license here"
+  :author "Milan Jovanovic <milanj@gmail.com>"
+  :license "BSD"
   :serial t
   :depends-on (#:drakma #:cxml #:alexandria #:ironclad #:bordeaux-threads)
   :components ((:file "package")

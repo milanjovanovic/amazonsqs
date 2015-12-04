@@ -1,23 +1,79 @@
+;;;;
+;;;; Copyright (c) Milan Jovanovic <milanj@gmail.com>
+;;;;
+;;;; Redistribution and use in source and binary forms, with or without
+;;;; modification, are permitted provided that the following conditions
+;;;; are met:
+;;;;
+;;;;   * Redistributions of source code must retain the above copyright
+;;;;     notice, this list of conditions and the following disclaimer.
+;;;;
+;;;;   * Redistributions in binary form must reproduce the above
+;;;;     copyright notice, this list of conditions and the following
+;;;;     disclaimer in the documentation and/or other materials
+;;;;     provided with the distribution.
+;;;;
+;;;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESSED
+;;;; OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+;;;; WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;;; ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+;;;; DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;;;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+;;;; GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+;;;; WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+;;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;;
 ;;;; package.lisp
 
 (defpackage #:amazonsqs
   (:use #:cl)
   (:export
    #:*sqs*
-   ;; objects
    #:awscredentials
    #:sqs
+   #:parallel-sqs
+   #:close-sqs
+   #:response
+   #:response-status
+   #:response-request-id
+   ;; message
    #:message
-   #:batch-result-error-entry
-   #:delete-message-batch-entry
-   #:send-message-batch-entry
-   #:change-message-visibility-batch-entry
-   #:batch-request-result
-   #:response ; check this
-   #:message-attribute ; change this
-   #:batch-message-entry
+   #:message-id
+   #:body
+   #:body-md5
+   #:receipt-handle
+   #:attributes
+   #:message-attributes
+   #:message-attributes-md5
+   ;; batch entries
    #:send-message-batch-action
-   #:add-entry
+   #:messages
+   #:add-message
+   #:add-message-attributes
+   ;; message entry in send message batch request
+   #:batch-message-entry
+   #:delay
+   #:attributes
+   ;; message attributes in batch request
+   #:message-attribute
+   #:message-attribute-name
+   #:message-attribute-type
+   #:message-attribute-value
+   ;; batch results
+   #:batch-request-result
+   #:successful
+   #:failed
+   ;; batch error entry
+   #:batch-error-result
+   #:batch-error-code
+   #:batch-error-message
+   #:batch-error-sender-fault
+   ;; batch results
+   #:delete-message-batch-result
+   #:send-message-batch-result
+   #:change-message-visibility-batch-result
    ;; Amazon API calls
    #:load-aws-credentials
    #:add-permission
@@ -37,5 +93,5 @@
    #:send-message
    #:send-message-batch
    #:set-queue-attributes
-   ;; conditions
+   ;; FIXME, export conditions
    ))

@@ -1,3 +1,32 @@
+;;;;
+;;;; Copyright (c) Milan Jovanovic <milanj@gmail.com>
+;;;;
+;;;; Redistribution and use in source and binary forms, with or without
+;;;; modification, are permitted provided that the following conditions
+;;;; are met:
+;;;;
+;;;;   * Redistributions of source code must retain the above copyright
+;;;;     notice, this list of conditions and the following disclaimer.
+;;;;
+;;;;   * Redistributions in binary form must reproduce the above
+;;;;     copyright notice, this list of conditions and the following
+;;;;     disclaimer in the documentation and/or other materials
+;;;;     provided with the distribution.
+;;;;
+;;;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESSED
+;;;; OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+;;;; WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;;; ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+;;;; DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;;;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+;;;; GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+;;;; WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+;;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;;
+;;;; schemas.lisp
+
 (in-package #:amazonsqs)
 
 (defparameter *schemas* (make-hash-table :test 'equal))
@@ -124,17 +153,29 @@
 (defun add-message-attributes (initial)
   (let* ((message (first (getf initial :value)))
 	 (temp (getf initial :temp))
-	 (message-attributes (message-attributes message))
-	 (string-value (getf temp :string-value)))
+	 (message-attributes (message-attributes message)))
     (setf (message-attributes message)
 	  (cons
-	   (list (getf temp :name)
-		 `(,(if string-value :string-value :binary-value)
-		   ,(if string-value string-value (getf temp :binary-value))
-		   :data-type ,(getf temp :data-type)))
+	   (create-message-attribute temp)
 	   message-attributes))
     (setf (getf initial :temp) nil)
     initial))
+
+(defun create-message-attribute (attributes-alist)
+  (let (value type name)
+    (loop for (key avalue) on attributes-alist by #'cddr
+	  do 
+	     (case key
+	       ((:binary-value :string-value) (setf value avalue))
+	       (:name (setf name avalue))
+	       (:data-type (cond ((string-equal avalue "String")
+				  (setf type :string))
+				 ((string-equal avalue "Binary")
+				  (setf type :binary))
+				 ((string-equal avalue "Number")
+				  (setf type :number))
+				 (t (error 'parsing-error :msg (format nil "Unknown message attribute type ~A" avalue)))))))
+    (make-instance 'message-attribute :value value :type type :name name)))
 
 (defun object-return-handler (value)
   (values
@@ -147,7 +188,7 @@
     (loop for object in rvalue
 	  with successful = nil
 	  with failed = nil
-	  if (typep object 'batch-result-error-entry)
+	  if (typep object 'batch-error-result)
 	    do (push object failed)
 	  else
 	    do (push object successful)
@@ -178,8 +219,8 @@
 
 (add-response-schema "ChangeMessageVisibilityBatchResponse"
 		     :return-fun 'batch-results-return-handler
-		     :start (("ChangeMessageVisibilityBatchResultEntry" (make-object-allocate-handler 'change-message-visibility-batch-entry))
-			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-result-error-entry))
+		     :start (("ChangeMessageVisibilityBatchResultEntry" (make-object-allocate-handler 'change-message-visibility-batch-result))
+			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-error-result))
 			     ("Id" (make-object-set-slot-handler 'id))
 			     ("Message" (make-object-set-slot-handler 'message))
 			     ("SenderFault" (make-object-set-slot-handler 'sender-fault))
@@ -196,8 +237,8 @@
 
 (add-response-schema "DeleteMessageBatchResponse"
 		     :return-fun 'batch-results-return-handler
-		     :start (("DeleteMessageBatchResultEntry" (make-object-allocate-handler 'delete-message-batch-entry))
-			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-result-error-entry))
+		     :start (("DeleteMessageBatchResultEntry" (make-object-allocate-handler 'delete-message-batch-result))
+			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-error-result))
 			     ("Id" (make-object-set-slot-handler 'id))
 			     ("Message" (make-object-set-slot-handler 'message))
 			     ("SenderFault" (make-object-set-slot-handler 'sender-fault))
@@ -255,15 +296,15 @@
 
 (add-response-schema "SendMessageResponse"
 		     :return-fun 'one-value-return-handler
-		     :start (("MD5OfMessageBody" (make-multi-values-handler :md5-of-message-body))
-			     ("MD5OfMessageAttributes" (make-multi-values-handler :md5-of-message-attributes))
-			     ("MessageId" (make-multi-values-handler :message-id))
+		     :start (("MD5OfMessageBody" (make-multi-values-handler :body-md5))
+			     ("MD5OfMessageAttributes" (make-multi-values-handler :attributes-md5))
+			     ("MessageId" (make-multi-values-handler :id))
 			     ("RequestId" 'second-value-handler)))
 
 (add-response-schema "SendMessageBatchResponse"
 		     :return-fun 'batch-results-return-handler
-		     :start (("SendMessageBatchResultEntry" (make-object-allocate-handler 'send-message-batch-entry))
-			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-result-error-entry))
+		     :start (("SendMessageBatchResultEntry" (make-object-allocate-handler 'send-message-batch-result))
+			     ("BatchResultErrorEntry" (make-object-allocate-handler 'batch-error-result))
 			     ("Id" (make-object-set-slot-handler 'id))
 			     ("MessageId" (make-object-set-slot-handler 'message-id))
 			     ("MD5OfMessageBody" (make-object-set-slot-handler 'message-body-md5))

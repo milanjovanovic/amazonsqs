@@ -1,11 +1,40 @@
-(in-package :amazonsqs)
+;;;;
+;;;; Copyright (c) Milan Jovanovic <milanj@gmail.com>
+;;;;
+;;;; Redistribution and use in source and binary forms, with or without
+;;;; modification, are permitted provided that the following conditions
+;;;; are met:
+;;;;
+;;;;   * Redistributions of source code must retain the above copyright
+;;;;     notice, this list of conditions and the following disclaimer.
+;;;;
+;;;;   * Redistributions in binary form must reproduce the above
+;;;;     copyright notice, this list of conditions and the following
+;;;;     disclaimer in the documentation and/or other materials
+;;;;     provided with the distribution.
+;;;;
+;;;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESSED
+;;;; OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+;;;; WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;;; ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+;;;; DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+;;;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+;;;; GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+;;;; INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+;;;; WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+;;;; NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+;;;; SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+;;;;
+;;;; objects.lisp
+
+(in-package #:amazonsqs)
 
 (defclass sqs-object ()
   ())
 
 (defclass message (sqs-object)
   ((id :initarg :id
-       :accessor id)
+       :accessor message-id)
    (body :initarg :body
 	 :accessor body)
    (receipt-handle :initarg :receipt-handle
@@ -19,7 +48,7 @@
 	       :accessor attributes
 	       :initform nil)
    (attributes-md5 :initarg :attributes-md5
-		   :accessor attributes-md5
+		   :accessor message-attributes-md5
 		   :initform nil)))
 
 (defmethod print-object ((message message) stream)
@@ -35,32 +64,32 @@
   ((id :initarg :id :accessor id)))
 
 (defmethod print-object ((batch-result batch-result) stream)
-  (print-unreadable-object (batch-result stream :type t :identity t)
+  (print-unreadable-object (batch-result stream :type t :identity nil)
     (princ (id batch-result) 
 	   stream)))
 
-(defclass batch-result-error-entry (batch-result)
+(defclass batch-error-result (batch-result)
   ((code :initarg :code
-	 :accessor code)
+	 :accessor batch-error-code)
    (message :initarg :message
-	    :accessor message
+	    :accessor batch-error-message
 	    :initform nil)
    (sender-fault :initarg :sender-fault
-		 :accessor sender-fault)))
+		 :accessor batch-error-sender-fault)))
 
-(defclass delete-message-batch-entry (batch-result)
+(defclass delete-message-batch-result (batch-result)
   ())
 
-(defclass send-message-batch-entry (batch-result)
+(defclass send-message-batch-result (batch-result)
   ((message-id :initarg :message-id
 	       :accessor message-id)
    (message-body-md5 :initarg :message-body-md5
-		     :accessor message-body-md5)
+		     :accessor body-md5)
    (message-attributes-md5 :initarg :message-attributes-md5
-			   :accessor message-attributes-md5
+			   :accessor attributes-md5
 			   :initform nil)))
 
-(defclass change-message-visibility-batch-entry (batch-result)
+(defclass change-message-visibility-batch-result (batch-result)
   ())
 
 (defclass batch-request-result (sqs-object)
@@ -87,28 +116,23 @@
 
 ;;; Objects for Batch SQS Calls ChangeMessageVisibilityBatch/DeleteMessageBatch/SendMessageBatch
 
-(defun fill-indexes (entries)
-  (loop for entry in entries
-	for index from 1
-	do (setf (index entry) index)))
-
 (defclass batch-action (sqs-object)
   ())
 
-(defclass batch-action-entry (sqs-object)
-  ((index :initarg :index :accessor index :initform 1)))
-
-(defgeneric create-parameters (batch-action-entry &optional parent)
+(defgeneric create-parameters (batch-action-entry &optional parent index parent-index)
   (:documentation "Creates parameters for sending in http request"))
 
 (defgeneric base-name (batch-action-entry))
 
-(defgeneric add-entry (parent child))
-
-(defclass message-attribute (batch-action-entry)
+(defclass message-attribute ()
   ((name :initarg :name :accessor message-attribute-name)
    (type :initarg :type :accessor message-attribute-type :initform :string)
    (value :initarg :value :accessor message-attribute-value)))
+
+(defmethod print-object ((message-attribute message-attribute) stream)
+  (print-unreadable-object (message-attribute stream :type t :identity nil)
+    (princ (message-attribute-name message-attribute)
+	   stream)))
 
 (defmethod base-name ((message-attribute message-attribute))
   "MessageAttribute")
@@ -128,20 +152,18 @@
     (:binary "Value.BinaryValue")
     (:number "Value.StringValue")))
 
-(defmethod create-parameters ((message-attribute message-attribute) &optional parent)
+(defmethod create-parameters ((message-attribute message-attribute) &optional parent index parent-index)
   (let ((parent-base-name (base-name parent))
-	(parent-index (index parent))
-	(attribute-base-name (base-name message-attribute))
-	(attribute-index (index message-attribute)))
+	(attribute-base-name (base-name message-attribute)))
     (flet ((slot-api-name (field)
 	     (format nil "~A.~A.~A.~A.~A" parent-base-name parent-index
-		     attribute-base-name attribute-index field)))
+		     attribute-base-name index field)))
       (alist-if-not-nil (slot-api-name "Name") (message-attribute-name message-attribute)
 			(slot-api-name "Value.DataType") (attribute-type-as-string (message-attribute-type message-attribute))
 			(slot-api-name (attribute-type-as-value-type-string 
 					(message-attribute-type message-attribute))) (message-attribute-value message-attribute)))))
 
-(defclass batch-message-entry (batch-action-entry)
+(defclass batch-message-entry ()
   ((id :initarg :id :accessor id)
    (body :initarg :body :accessor body)
    (delay :initarg :delay :accessor delay :initform nil)
@@ -150,41 +172,39 @@
 (defmethod base-name ((batch-message-entry batch-message-entry))
   "SendMessageBatchRequestEntry")
 
-(defmethod create-parameters ((batch-message-entry batch-message-entry) &optional parent)
-  (declare (ignore parent))
-  (let ((attributes (reverse (copy-list (attributes batch-message-entry)))))
-    ;; fill attributes index field so we can create right ordered parameters
-    (fill-indexes attributes)
-    (let* ((index (index batch-message-entry))
-	   (base-name (base-name batch-message-entry))
+(defmethod create-parameters ((batch-message-entry batch-message-entry) &optional parent index parent-index)
+  (declare (ignore parent parent-index))
+  (multiple-value-bind (attributes attributes-count) (reverse-and-count (attributes batch-message-entry))
+    (let* ((base-name (base-name batch-message-entry))
 	   (base (format nil "~A.~A" base-name index)))
       (flet ((slot-api-name (field)
 	       (format nil "~A.~A" base field)))
 	(let ((base-parameters (alist-if-not-nil (slot-api-name "Id") (id batch-message-entry)
 						 (slot-api-name "MessageBody") (body batch-message-entry)
 						 (slot-api-name "DelaySeconds") (delay batch-message-entry)))
-	      (attributes-parameters (mapcan (lambda (attribute)
-					       (create-parameters attribute batch-message-entry))
-					     attributes)))
+	      (attributes-parameters (mapcan (lambda (attribute attribute-index)
+					       (create-parameters attribute batch-message-entry attribute-index index))
+					     attributes
+					     (alexandria:iota attributes-count :start 1))))
 	  (nconc base-parameters attributes-parameters))))))
 
-(defmethod add-entry ((parent batch-message-entry) (child message-attribute))
-  (setf (attributes parent)
-	(cons child
-	      (attributes parent))))
+(defun add-message-attribute (batch-message-entry message-attribute)
+  (setf (attributes batch-message-entry)
+	(cons message-attribute
+	      (attributes batch-message-entry))))
 
 (defclass send-message-batch-action (batch-action)
   ((messages :initarg :messages :accessor messages :initform nil)))
 
-(defmethod add-entry ((parent send-message-batch-action) (child batch-message-entry))
-  (setf (messages parent)
-	(cons child
-	      (messages parent))))
+(defun add-message (send-message-batch-action batch-message-entry)
+  (setf (messages send-message-batch-action)
+	(cons batch-message-entry
+	      (messages send-message-batch-action))))
 
-(defmethod create-parameters ((batch-action send-message-batch-action) &optional parent)
-  (declare (ignore parent))
-  (let ((messages (reverse (copy-list (messages batch-action)))))
-    (fill-indexes messages)
-    (mapcan (lambda (message)
-	      (create-parameters message batch-action))
-	    messages)))
+(defmethod create-parameters ((batch-action send-message-batch-action) &optional parent index parent-index)
+  (declare (ignore parent index parent-index))
+  (multiple-value-bind (messages messages-count) (reverse-and-count (messages batch-action))
+    (mapcan (lambda (message message-index)
+	      (create-parameters message batch-action message-index))
+	    messages
+	    (alexandria:iota messages-count :start 1))))
