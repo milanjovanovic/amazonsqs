@@ -36,11 +36,11 @@
   ((id :initarg :id
        :accessor message-id)
    (body :initarg :body
-	 :accessor body)
+	 :accessor message-body)
    (receipt-handle :initarg :receipt-handle
-		   :accessor receipt-handle)
+		   :accessor message-receipt-handle)
    (body-md5 :initarg :body-md5
-	     :accessor body-md5)
+	     :accessor message-body-md5)
    (message-attributes :initarg :message-attributes
 		       :accessor message-attributes
 		       :initform nil)
@@ -84,9 +84,9 @@
   ((message-id :initarg :message-id
 	       :accessor message-id)
    (message-body-md5 :initarg :message-body-md5
-		     :accessor body-md5)
+		     :accessor message-body-md5)
    (message-attributes-md5 :initarg :message-attributes-md5
-			   :accessor attributes-md5
+			   :accessor message-attributes-md5
 			   :initform nil)))
 
 (defclass change-message-visibility-batch-result (batch-result)
@@ -165,9 +165,9 @@
 
 (defclass batch-message-entry ()
   ((id :initarg :id :accessor id)
-   (body :initarg :body :accessor body)
-   (delay :initarg :delay :accessor delay :initform nil)
-   (attributes :initarg :attributes :accessor attributes :initform nil)))
+   (body :initarg :body :accessor message-body)
+   (delay :initarg :delay :accessor message-delay :initform nil)
+   (attributes :initarg :attributes :accessor message-attributes :initform nil)))
 
 (defmethod base-name ((batch-message-entry batch-message-entry))
   "SendMessageBatchRequestEntry")

@@ -41,9 +41,9 @@
    ;; message
    #:message
    #:message-id
-   #:body
-   #:body-md5
-   #:receipt-handle
+   #:mesage-body
+   #:message-body-md5
+   #:message-receipt-handle
    #:attributes
    #:message-attributes
    #:message-attributes-md5
@@ -52,10 +52,9 @@
    #:messages
    #:add-message
    #:add-message-attributes
+   #:id
    ;; message entry in send message batch request
    #:batch-message-entry
-   #:delay
-   #:attributes
    ;; message attributes in batch request
    #:message-attribute
    #:message-attribute-name
