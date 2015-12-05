@@ -41,7 +41,7 @@
    ;; message
    #:message
    #:message-id
-   #:mesage-body
+   #:message-body
    #:message-body-md5
    #:message-receipt-handle
    #:attributes

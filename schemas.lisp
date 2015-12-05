@@ -298,7 +298,7 @@
 		     :return-fun 'one-value-return-handler
 		     :start (("MD5OfMessageBody" (make-multi-values-handler :body-md5))
 			     ("MD5OfMessageAttributes" (make-multi-values-handler :attributes-md5))
-			     ("MessageId" (make-multi-values-handler :id))
+			     ("MessageId" (make-multi-values-handler :message-id))
 			     ("RequestId" 'second-value-handler)))
 
 (add-response-schema "SendMessageBatchResponse"

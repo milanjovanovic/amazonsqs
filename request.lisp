@@ -43,9 +43,6 @@
 (defgeneric process-request (sqs request)
   (:documentation "Generic function that do real work of sending request to amazon and returning something meaningful"))
 
-(defgeneric test-request (sqs request)
-  (:documentation "For testing purposes, return response string"))
-
 (defmethod get-request-host ((sqs sqs) (request request))
   (let ((query-url (request-query-url request)))
     (if query-url
@@ -112,14 +109,6 @@
 	(drakma-call saved-stream)
       ((or stream-error cl+ssl::ssl-error) ()
 	(drakma-call nil)))))
-
-(defmethod test-request ((sqs sqs) (request request))
-  (let ((signed-parameters (sign-request sqs request)))
-    (drakma:http-request (get-request-host sqs request)
-			 :parameters signed-parameters
-			 :method :post
-			 :url-encoder #'no-encoder
-			 :close nil)))
 
 (defun create-canonical-string (url region host protocol)
   ;; looks like we don't need regions:443 if protocol is https

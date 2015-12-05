@@ -53,10 +53,10 @@
 
 (defmethod print-object ((message message) stream)
   (print-unreadable-object (message stream :type t :identity t)
-    (let* ((body-size (length (body message)))
+    (let* ((body-size (length (message-body message)))
 	   (print-size (if (< body-size 5) body-size 5)))
       (princ (concatenate 'string
-			  (subseq (body message) 0 print-size)
+			  (subseq (message-body message) 0 print-size)
 			  "...")
 	     stream))))
 
@@ -180,8 +180,8 @@
       (flet ((slot-api-name (field)
 	       (format nil "~A.~A" base field)))
 	(let ((base-parameters (alist-if-not-nil (slot-api-name "Id") (id batch-message-entry)
-						 (slot-api-name "MessageBody") (body batch-message-entry)
-						 (slot-api-name "DelaySeconds") (delay batch-message-entry)))
+						 (slot-api-name "MessageBody") (message-body batch-message-entry)
+						 (slot-api-name "DelaySeconds") (message-delay batch-message-entry)))
 	      (attributes-parameters (mapcan (lambda (attribute attribute-index)
 					       (create-parameters attribute batch-message-entry attribute-index index))
 					     attributes
