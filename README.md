@@ -185,8 +185,26 @@ CL-USER>
 
 ## The AMAZONSQS Dictionary:
 
-All functions here are directly mapped to Actions from [Amazon SQS documentation](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html)
+**NOTE** All methods/functions described here that operates on Amazon SQS are are directly mapped to Actions from [Amazon SQS documentation](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html)
 
+### Classes
+*class*
+**SQS**
+
+Thread safe SQS client (new connection for every request)
+
+*slot* **aws-credentials**
+*slot* **region** (defualt is sqs.us-east-1.amazonaws.com)
+*slot* **protocol** (default is :http)
+
+*class*
+**PARALLEL-SQS**
+Thread safe SQS client that caches connections (one per thread). Slots are as in SQS
+Same slots as in SQS
+
+
+### Functions/Methods
+*function*
 **add-permission** queue-url label permissions &key sqs => response
 
 queue-url --- a string representing queue url
