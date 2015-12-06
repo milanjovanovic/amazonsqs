@@ -9,6 +9,8 @@ CL-USER> (push "/tmp/amazonsqs/" asdf:*central-registry*)
 CL-USER> (ql:quickload "amazonsqs")
 .......
 ("amazonsqs")
+CL-USER> (use-package :amazonsqs)
+T
 ```
 
 ## Usage example
@@ -24,14 +26,15 @@ then SQS
 CL-USER> (defparameter *mysqs* (make-instance 'sqs :aws-credentials *creds*))
 *MYSQS*
 ````
-or use PARALLEL-SQS which is caching and reusing connections (one connection per thread, faster then SQS)
+or use PARALLEL-SQS which is caching and reusing connections (one connection per thread, considerably   faster then SQS)
 ```
 CL-USER> (defparameter *mysqs* (make-instance 'parallel-sqs :aws-credentials *creds*))
 *MYSQS*
 ````
 
-### Create and list queues
+### Basic Queue Operations
 
+List queues
 ```
 CL-USER> (list-queues :sqs *mysqs*)
 NIL
@@ -39,13 +42,19 @@ NIL
 CL-USER> (setf *sqs* *mysqs*)
 CL-USER> (list-queues)
 NIL
-#<RESPONSE 200>
-(create-queue "testQueue" :attributes '((:name "DelaySeconds" :value 5)))
+```
+Create queue
+```
+CL-USER> (create-queue "testQueue" :attributes '((:name "DelaySeconds" :value 5)))
 "http://sqs.us-east-1.amazonaws.com/653067390209/testQueue"
 #<RESPONSE 200>
 CL-USER> (list-queues)
 ("http://sqs.us-east-1.amazonaws.com/653067390209/testQueue")
 #<RESPONSE 200>
+```
+
+Getting queue url and attributes
+```
 CL-USER> (get-queue-url "testQueue")
 "http://sqs.us-east-1.amazonaws.com/653067390209/testQueue"
 #<RESPONSE 200>
@@ -62,17 +71,25 @@ CL-USER> (get-queue-attributes (get-queue-url "testQueue") '("All"))
  ("MessageRetentionPeriod" . "345600") ("DelaySeconds" . "5")
  ("ReceiveMessageWaitTimeSeconds" . "0"))
 #<RESPONSE 200>
+```
+Delete queue
+```
 CL-USER> (delete-queue (get-queue-url "testQueue"))
 #<RESPONSE 200>
 ```
+
 ### Sending and receiving messages
 
+Sending one message
 ```
 CL-USER> (send-message (get-queue-url "testQueue") "example message body" :attributes '((:name "MessageAttribute-1" :value 10 :type :number)))
 ((:MESSAGE-ID . "c6e4e2d8-f25a-4eea-8b9d-5b6dcd094530")
  (:ATTRIBUTES-MD5 . "909bdca3008941c20f265b588e20579a")
  (:BODY-MD5 . "337b359654178adbf8782b837261ff66"))
 #<RESPONSE 200>
+```
+Receive and delete message
+```
 CL-USER> (defparameter *queue-url* (get-queue-url "testQueue"))
 *QUEUE-URL*
 CL-USER> (receive-message *queue-url* :max 10 :attributes '("All") :message-attributes '("MessageAttribute-1"))
@@ -94,15 +111,104 @@ CL-USER> (attributes (first *received-msgs*))
 #<RESPONSE 200>
 ```
 
+Sending more than one message in one request
+
+```
+CL-USER> (send-message-batch *queue-url* '((:id "id1" :body "1. msg body")
+					   (:id "id2" :body "2. msg body" :delay-seconds 10)
+					   (:id "id3" :body "3. msg body" :attributes ((:name "attr1" :type :number :value 10)))))
+
+
+#<BATCH-REQUEST-RESULT :successful 3, failed: 0 {1003CF87C3}>
+#<RESPONSE 200>
+CL-USER> 
+CL-USER> (successful *)
+(#<SEND-MESSAGE-BATCH-RESULT id1> #<SEND-MESSAGE-BATCH-RESULT id2>
+ #<SEND-MESSAGE-BATCH-RESULT id3>)
+```
+or the same thing with CLOS objects
+```
+CL-USER> (defparameter *send-message-action* (make-instance 'send-message-batch-action))
+*SEND-MESSAGE-ACTION*
+CL-USER> (add-message-entry *send-message-action* (make-instance 'batch-message-entry :id "id100"  :body "another msg"))
+
+(#<BATCH-MESSAGE-ENTRY {1006C78923}>)
+CL-USER> (add-message-entry *send-message-action* (make-instance 'batch-message-entry :id "id200"  :body "another msg"
+								 :attributes (list
+									      (make-instance 'message-attribute 
+											     :type :string
+											     :value "foo"
+											     :name "AttrBatchName"))))
+(#<BATCH-MESSAGE-ENTRY {1007007903}> #<BATCH-MESSAGE-ENTRY {1006C78923}>)
+CL-USER> (send-message-batch *queue-url* *send-message-action*)
+#<BATCH-REQUEST-RESULT :successful 2, failed: 0 {10043C1383}>
+#<RESPONSE 200>
+CL-USER> 
+
+```
+deleting more than one message
+```
+CL-USER> (defparameter *received-messages* (receive-message *queue-url* :max 5))
+*RECEIVED-MESSAGES*
+CL-USER> (defparameter *delete-message-batch-action* (make-instance 'delete-message-batch-action))
+*DELETE-MESSAGE-BATCH-ACTION*
+CL-USER> (add-message-entry *delete-message-batch-action* 
+			    (make-instance 'batch-message-delete-entry 
+					   :id "message-1"
+					   :receipt-handle (message-receipt-handle (first *received-messages*))))
+(#<BATCH-MESSAGE-DELETE-ENTRY {1008A49A13}>)
+CL-USER> (add-message-entry *delete-message-batch-action* 
+			    (make-instance 'batch-message-delete-entry 
+					   :id "message-2"
+					   :receipt-handle (message-receipt-handle (second *received-messages*))))
+(#<BATCH-MESSAGE-DELETE-ENTRY {1008A70AB3}>
+ #<BATCH-MESSAGE-DELETE-ENTRY {1008A49A13}>)
+ CL-USER> (delete-message-batch *queue-url* *delete-message-batch-action*)
+#<BATCH-REQUEST-RESULT :successful 2, failed: 0 {100A1C1383}>
+#<RESPONSE 200>
+CL-USER> (successful *)
+(#<DELETE-MESSAGE-BATCH-RESULT message-1>
+ #<DELETE-MESSAGE-BATCH-RESULT message-2>)
+CL-USER> 
+```
+the same without CLOS
+```
+CL-USER> (delete-message-batch *queue-url* `((:id "ID1" :receipt-handle ,(message-receipt-handle (first *received-messages*)))
+					     (:id "ID2" :receipt-handle ,(message-receipt-handle (second *received-messages*)))))
+#<BATCH-REQUEST-RESULT :successful 2, failed: 0 {10049BA243}>
+#<RESPONSE 200>
+CL-USER> (successful *)
+(#<DELETE-MESSAGE-BATCH-RESULT ID1> #<DELETE-MESSAGE-BATCH-RESULT ID2>)
+CL-USER> 
+```
+
+
 ## The AMAZONSQS Dictionary:
 
-All functions here are directly mapped to Actions from Amazon SQS documentation http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html
+All functions here are directly mapped to Actions from [Amazon SQS documentation](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html)
 
-add-permission queue-url label permissions &key sqs => response
+**add-permission** queue-url label permissions &key sqs => response
 
-change-message-visibility queue-url receipt-handle visibility-timeout &key sqs => 
+queue-url --- a string representing queue url
+
+label --- a string representing permission you're setting
+
+permissions --- a list of permission plists ((:aws-account-id "account-id" :action-name "action-name"))
+
+response --- RESPONSE object
+
+Example:
+```
+(add-permission "queue-url" "label" '((:account-id "acc-id" :action-name "Action")))
+```
+
+
+**change-message-visibility** queue-url receipt-handle visibility-timeout &key sqs => response
+
 
 change-message-visibility-batch queue-url entries &key sqs =>
+
+entries 
 
 create-queue queue-name &key attributes sqs => 
 
