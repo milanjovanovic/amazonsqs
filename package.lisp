@@ -50,8 +50,8 @@
    ;; batch entries
    #:send-message-batch-action
    #:messages
-   #:add-message
-   #:add-message-attributes
+   #:add-message-entry
+   #:add-message-attributes-entry
    #:id
    ;; message entry in send message batch request
    #:batch-message-entry

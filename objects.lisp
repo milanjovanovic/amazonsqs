@@ -174,7 +174,7 @@
 
 (defmethod create-parameters ((batch-message-entry batch-message-entry) &optional parent index parent-index)
   (declare (ignore parent parent-index))
-  (multiple-value-bind (attributes attributes-count) (reverse-and-count (attributes batch-message-entry))
+  (multiple-value-bind (attributes attributes-count) (reverse-and-count (message-attributes batch-message-entry))
     (let* ((base-name (base-name batch-message-entry))
 	   (base (format nil "~A.~A" base-name index)))
       (flet ((slot-api-name (field)
@@ -188,15 +188,15 @@
 					     (alexandria:iota attributes-count :start 1))))
 	  (nconc base-parameters attributes-parameters))))))
 
-(defun add-message-attribute (batch-message-entry message-attribute)
-  (setf (attributes batch-message-entry)
+(defun add-message-attribute-entry (batch-message-entry message-attribute)
+  (setf (message-attributes batch-message-entry)
 	(cons message-attribute
-	      (attributes batch-message-entry))))
+	      (message-attributes batch-message-entry))))
 
 (defclass send-message-batch-action (batch-action)
   ((messages :initarg :messages :accessor messages :initform nil)))
 
-(defun add-message (send-message-batch-action batch-message-entry)
+(defun add-message-entry (send-message-batch-action batch-message-entry)
   (setf (messages send-message-batch-action)
 	(cons batch-message-entry
 	      (messages send-message-batch-action))))
