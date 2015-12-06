@@ -234,6 +234,7 @@ Thread safe SQS client that caches connections (one per thread). Slots are as in
 
 *class*
 **BATCH-REQUEST-RESULT**
+
 Object of this class is returned when one of **batch** requests are called
 
 *accessor* 
