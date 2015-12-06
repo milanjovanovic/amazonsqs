@@ -202,38 +202,34 @@ Example:
 (add-permission "queue-url" "label" '((:account-id "acc-id" :action-name "Action")))
 ```
 
-
 **change-message-visibility** queue-url receipt-handle visibility-timeout &key sqs => response
 
+**change-message-visibility-batch** queue-url entries &key sqs =>
 
-change-message-visibility-batch queue-url entries &key sqs =>
+**create-queue** queue-name &key attributes sqs => 
 
-entries 
+**delete-message** queue-url receipt-handle &key sqs =>
 
-create-queue queue-name &key attributes sqs => 
+**delete-message-batch** queue-url entries &key sqs =>
 
-delete-message queue-url receipt-handle &key sqs =>
+**delete-queue** queue-url &key sqs => response
 
-delete-message-batch queue-url entries &key sqs =>
+**get-queue-attributes** queue-url attributes &key sqs =>
 
-delete-queue queue-url &key sqs => response
+**get-queue-url** queue-name &key sqs =>
 
-get-queue-attributes queue-url attributes &key sqs =>
+**list-dead-letter-source-queues** queue-url &key sqs =>
 
-get-queue-url queue-name &key sqs =>
+**list-queues** &key prefix sqs =>
 
-list-dead-letter-source-queues queue-url &key sqs =>
+**purge-queue** queue-url &key sqs =>
 
-list-queues &key prefix sqs =>
+**receive-message** queue-url &key max visibility-timeout wait-time attributes message-attributes sqs =>
 
-purge-queue queue-url &key sqs =>
+**remove-permission** queue-url label &key sqs =>
 
-receive-message queue-url &key max visibility-timeout wait-time attributes message-attributes sqs =>
+**send-message** queue-url message-body &key delay-seconds attributes sqs =>
 
-remove-permission queue-url label &key sqs =>
+**send-message-batch** queue-url entries &key sqs =>
 
-send-message queue-url message-body &key delay-seconds attributes sqs =>
-
-send-message-batch queue-url entries &key sqs =>
-
-set-queue-attributes queue-url attribute-name attribute-value &key sqs =>
+**set-queue-attributes** queue-url attribute-name attribute-value &key sqs =>
