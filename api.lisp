@@ -87,7 +87,17 @@
 				:parameters (alist-if-not-nil "ReceiptHandle" receipt-handle))))
     (process-request sqs request)))
 
-(defun delete-message-batch (queue-url entries &key (sqs *sqs*))
+(defgeneric delete-message-batch (queue-url entries &key sqs)
+  (:documentation "Deleting more than one message in request"))
+
+(defmethod delete-message-batch (queue-url (delete-message-batch-action delete-message-batch-action) &key (sqs *sqs*))
+  (let ((request (make-instance 'request
+				:action "DeleteMessageBatch"
+				:queue-url queue-url
+				:parameters (create-parameters delete-message-batch-action))))
+    (process-request sqs request)))
+
+(defmethod delete-message-batch (queue-url (entries list) &key (sqs *sqs*))
   (let ((request (make-instance 'request
 				:action "DeleteMessageBatch"
 				:queue-url queue-url
@@ -176,7 +186,7 @@
 				 :parameters (create-parameters send-message-batch-action))))
     (process-request sqs request)))
 
-(defmethod send-message-batch (queue-url entries &key (sqs *sqs*))
+(defmethod send-message-batch (queue-url (entries list) &key (sqs *sqs*))
   (let ((request (make-instance 'request
 				:action "SendMessageBatch"
 				:queue-url queue-url

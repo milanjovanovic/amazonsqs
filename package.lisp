@@ -49,12 +49,15 @@
    #:message-attributes-md5
    ;; batch entries
    #:send-message-batch-action
+   #:delete-message-batch-action
    #:messages
    #:add-message-entry
    #:add-message-attributes-entry
    #:id
    ;; message entry in send message batch request
    #:batch-message-entry
+   ;; message entry in delete message batch request
+   #:batch-message-delete-entry
    ;; message attributes in batch request
    #:message-attribute
    #:message-attribute-name

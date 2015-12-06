@@ -96,7 +96,9 @@ CL-USER> (attributes (first *received-msgs*))
 
 ## The AMAZONSQS Dictionary:
 
-add-permission queue-url label permissions &key sqs => 
+All functions here are directly mapped to Actions from Amazon SQS documentation http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html
+
+add-permission queue-url label permissions &key sqs => response
 
 change-message-visibility queue-url receipt-handle visibility-timeout &key sqs => 
 

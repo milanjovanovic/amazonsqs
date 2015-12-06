@@ -175,8 +175,7 @@
 (defmethod create-parameters ((batch-message-entry batch-message-entry) &optional parent index parent-index)
   (declare (ignore parent parent-index))
   (multiple-value-bind (attributes attributes-count) (reverse-and-count (message-attributes batch-message-entry))
-    (let* ((base-name (base-name batch-message-entry))
-	   (base (format nil "~A.~A" base-name index)))
+    (let ((base (format nil "~A.~A" (base-name batch-message-entry) index)))
       (flet ((slot-api-name (field)
 	       (format nil "~A.~A" base field)))
 	(let ((base-parameters (alist-if-not-nil (slot-api-name "Id") (id batch-message-entry)
@@ -196,12 +195,31 @@
 (defclass send-message-batch-action (batch-action)
   ((messages :initarg :messages :accessor messages :initform nil)))
 
-(defun add-message-entry (send-message-batch-action batch-message-entry)
-  (setf (messages send-message-batch-action)
-	(cons batch-message-entry
-	      (messages send-message-batch-action))))
+(defun add-message-entry (action message-entry)
+  (setf (messages action)
+	(cons message-entry
+	      (messages action))))
 
-(defmethod create-parameters ((batch-action send-message-batch-action) &optional parent index parent-index)
+(defclass delete-message-batch-action (batch-action)
+  ((messages :initarg :messages :accessor messages :initform nil)))
+
+(defclass batch-message-delete-entry ()
+  ((id :initarg :id :accessor id)
+   (receipt-handle :initarg :receipt-handle :accessor message-receipt-handle)))
+
+(defmethod base-name ((batch-message-delete-entry batch-message-delete-entry))
+  "DeleteMessageBatchRequestEntry")
+
+(defmethod create-parameters ((message-entry batch-message-delete-entry) &optional parent index parent-index)
+  (declare (ignore parent parent-index))
+  (let* ((base (format nil "~A.~A" (base-name message-entry) index)))
+    (flet ((slot-api-name (field)
+	     (format nil "~A.~A" base field)))
+      (alist-if-not-nil (slot-api-name "Id") (id message-entry)
+			(slot-api-name "ReceiptHandle") (message-receipt-handle message-entry)))))
+
+
+(defmethod create-parameters ((batch-action batch-action) &optional parent index parent-index)
   (declare (ignore parent index parent-index))
   (multiple-value-bind (messages messages-count) (reverse-and-count (messages batch-action))
     (mapcan (lambda (message message-index)
