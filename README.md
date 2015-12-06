@@ -185,16 +185,12 @@ CL-USER>
 
 ## The AMAZONSQS Dictionary:
 
-**NOTE** All methods/functions described here that operates on Amazon SQS are are directly mapped to Actions from [Amazon SQS documentation](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html)
+**NOTE** All methods/functions described here that operates on Amazon SQS are directly mapped to Actions from [Amazon SQS documentation](http://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_Operations.html)
 
 ### Classes
 
 *class*
 **AWSCREDENTIALS**
-
-*slot* **access-key**
-
-*slot* **secret-key**
 
 ***
 
@@ -215,6 +211,72 @@ Thread safe SQS client (new connection for every request)
 **PARALLEL-SQS**
 
 Thread safe SQS client that caches connections (one per thread). Slots are as in SQS class
+***
+
+*class*
+**MESSAGE**
+
+
+*accessor* **message-id**
+
+*accessor* **message-body**
+
+*accessor* **message-receipt-handle**
+
+*accessor* **mesage-body-md5**
+
+*accessor* **message-attributes**
+
+*accessor* **attributes**
+
+*accessor* **message-attributes-md5**
+***
+
+*class*
+**BATCH-REQUEST-RESULT**
+Object of this class is returned when one of **batch** requests are called
+
+*accessor* 
+**successful**
+
+*accessor*
+**failed**
+***
+
+*class*
+**BATCH-ERROR-RESULT**
+***
+
+*class*
+**DELETE-MESSAGE-BATCH-RESULT**
+***
+
+*class*
+**SEND-MESSAGE-BATCH-RESULT**
+***
+
+*class*
+**CHANGE-MESSAGE-VISIBILITY-BATCH-RESULT**
+***
+
+*class*
+**SEND-MESSAGE-BATCH-ACTION**
+***
+
+*class*
+**DELETE-MESSAGE-BATCH-ACTION**
+***
+
+*class*
+**MESSAGE-ATTRIBUTE**
+***
+
+*class*
+**BATCH-MESSAGE-ENTRY**
+***
+
+*class*
+**BATCH-MESSAGE-DELETE-ENTRY**
 
 
 
