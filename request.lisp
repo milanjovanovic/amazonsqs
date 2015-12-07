@@ -107,7 +107,11 @@
 				:stream stream)))
     (handler-case
 	(drakma-call saved-stream)
-      ((or stream-error cl+ssl::ssl-error) ()
+      ((or stream-error cl+ssl::ssl-error
+	;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
+	drakma::drakma-simple-error
+	#+lispworks comm:socket-error) ()
+	(ignore-errors (close saved-stream))
 	(drakma-call nil)))))
 
 (defun create-canonical-string (url region host protocol)
