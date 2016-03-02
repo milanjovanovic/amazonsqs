@@ -66,9 +66,8 @@
 	     (create-response source))))))
 
 (defun get-next-value (source)
-  (remove-blanks
-   (with-output-to-string (s)
-     (loop for type = (klacks:peek-next source) 
-	   if (eq type :CHARACTERS)
-	     do (format s (klacks:current-characters source))
-	   else do (return)))))
+  (with-output-to-string (s)
+    (loop for type = (klacks:peek-next source) 
+	  if (eq type :CHARACTERS)
+	    do (format s (klacks:current-characters source))
+	  else do (return))))
