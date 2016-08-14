@@ -13,6 +13,7 @@
 	       (:file "objects")
 	       (:file "schemas")
 	       (:file "parser")
+	       (:file "connpool")
 	       (:file "request")
 	       (:file "parameters")
 	       (:file "api")))

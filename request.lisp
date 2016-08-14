@@ -34,16 +34,10 @@
    (parameters :initarg :parameters :accessor request-parameters :initform nil)
    (queue-url :initarg :queue-url :accessor request-query-url :initform nil)))
 
-(defgeneric get-request-host (sqs request)
-  (:documentation "This function return endpoint host for our request"))
-
-(defgeneric sign-request (sqs request)
-  (:documentation "This function resolve all missing Amazon SQS parameters and sign request adding Signature param to request parameters"))
-
 (defgeneric process-request (sqs request)
   (:documentation "Generic function that do real work of sending request to amazon and returning something meaningful"))
 
-(defmethod get-request-host ((sqs sqs) (request request))
+(defun get-request-host (sqs request)
   (let ((query-url (request-query-url request)))
     (if query-url
 	query-url
@@ -53,7 +47,7 @@
 			 "http://")
 		     (sqs-region sqs)))))
 
-(defmethod sign-request ((sqs sqs) (request request))
+(defun sign-request (sqs request)
   (let* ((parameters (request-parameters request))
 	 (full-parameters (add-base-parameters-and-encode sqs parameters (request-action request)))
 	 (sorted-full-parameters (sort full-parameters #'string< :key #'car))
@@ -70,34 +64,7 @@
   (declare (ignore encoding))
   parameter-value)
 
-(defmethod process-request ((sqs sqs) (request request))
-  (let ((signed-parameters (sign-request sqs request)))
-    (multiple-value-bind (amazon-stream response-status-code)
-	(drakma:http-request (get-request-host sqs request)
-			     :parameters signed-parameters
-			     :method :post
-			     :url-encoder #'no-encoder
-			     :want-stream t
-			     :force-binary t)
-      (multiple-value-bind (f s) (create-response (cxml:make-source amazon-stream))
-	(if s
-	    (values f (make-instance 'response :request-id s :status response-status-code))
-	    (make-instance 'response :request-id f :status response-status-code))))))
-
-(defmethod process-request ((sqs parallel-sqs) (request request))
-  (let ((signed-parameters (sign-request sqs request))
-	(cached-stream (get-sqs-stream sqs)))
-    (multiple-value-bind (response response-status-code ign1 ign2 stream)
-	(http-call (get-request-host sqs request) signed-parameters cached-stream)	
-      (declare (ignore ign1 ign2))
-      (unless (eq cached-stream stream)
-	(cache-sqs-stream sqs stream))
-      (multiple-value-bind (f s) (create-response  (cxml:make-source response))
-	(if s
-	    (values f (make-instance 'response :request-id s :status response-status-code))
-	    (make-instance 'response :request-id f :status response-status-code))))))
-
-(defun http-call (hostname parameters saved-stream)
+(defun http-call (hostname parameters saved-stream retry)
   (flet ((drakma-call (stream)
 	   (drakma:http-request hostname
 				:parameters parameters
@@ -105,14 +72,47 @@
 				:url-encoder #'no-encoder
 				:close nil
 				:stream stream)))
-    (handler-case
-	(drakma-call saved-stream)
-      ((or stream-error cl+ssl::ssl-error
-	;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
-	drakma::drakma-simple-error
-	#+lispworks comm:socket-error) ()
-	(ignore-errors (close saved-stream))
-	(drakma-call nil)))))
+    (if retry
+	(handler-case
+	    (drakma-call saved-stream)
+	  ((or
+	    stream-error
+	    cl+ssl::ssl-error
+	    ;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
+	    (and drakma::drakma-error (not drakma:parameter-error))
+	    #+lispworks comm:socket-error) ()
+	    (when saved-stream
+	      (ignore-errors (close saved-stream)))
+	    (drakma-call nil)))
+	(drakma-call saved-stream))))
+
+(defmethod process-request ((sqs sqs) (request request))
+  (let ((signed-parameters (sign-request sqs request)))
+    (multiple-value-bind (response response-status-code _ __ stream)
+	(http-call (get-request-host sqs request) signed-parameters *saved-stream* (not *close-stream*))
+      (declare (ignore _ __))
+      (multiple-value-bind (f s) (create-response (cxml:make-source response))
+	(when (not *close-stream*)
+	  (setf *saved-stream* stream))
+	(if s
+	    (values f (make-instance 'response :request-id s :status response-status-code))
+	    (make-instance 'response :request-id f :status response-status-code))))))
+
+(defmethod process-request ((sqs connection-pooling-sqs) (request request))
+  (let ((signed-parameters (sign-request sqs request))
+	(cached-stream (get-connection (sqs-connection-pool sqs))))
+    (multiple-value-bind (response response-status-code _ __ stream)
+	(handler-bind (((not warning) #'(lambda (c)
+					  ;; FIXME, cached-stream or stream ???
+					  (add-connection (sqs-connection-pool sqs) cached-stream)
+					  (signal c))))
+	  (http-call (get-request-host sqs request) signed-parameters cached-stream t))
+      (declare (ignore _ __))
+      (add-connection (sqs-connection-pool sqs) stream)
+      (multiple-value-bind (f s) (create-response (cxml:make-source response))
+	(if s
+	    (values f (make-instance 'response :request-id s :status response-status-code))
+	    (make-instance 'response :request-id f :status response-status-code))))))
 
 (defun create-canonical-string (url region host protocol)
   ;; looks like we don't need regions:443 if protocol is https
