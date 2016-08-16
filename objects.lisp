@@ -53,6 +53,7 @@
 
 (defmethod print-object ((message message) stream)
   (print-unreadable-object (message stream :type t :identity t)
+
     (let* ((body-size (length (message-body message)))
 	   (print-size (if (< body-size 5) body-size 5)))
       (princ (concatenate 'string
@@ -94,15 +95,15 @@
 
 (defclass batch-request-result (sqs-object)
   ((successful :initarg :successful
-	       :accessor successful)
+	       :accessor batch-successful)
    (failed :initarg :failed
-	   :accessor failed)))
+	   :accessor batch-failed)))
 
 (defmethod print-object ((result batch-request-result) stream)
   (print-unreadable-object (result stream :type t :identity t)
     (princ (format nil ":successful ~A, failed: ~A"
-		   (length (successful result))
-		   (length (failed result)))
+		   (length (batch-successful result))
+		   (length (batch-failed result)))
 	   stream)))
 
 (defclass response ()

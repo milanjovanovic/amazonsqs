@@ -33,7 +33,10 @@
    #:*sqs*
    #:awscredentials
    #:sqs
-   #:parallel-sqs
+   #:connection-pooling-sqs
+   #:with-cached-stream
+   #:*do-cache-stream*
+   #:*cached-stream*
    #:close-sqs
    #:response
    #:response-status
@@ -65,8 +68,8 @@
    #:message-attribute-value
    ;; batch results
    #:batch-request-result
-   #:successful
-   #:failed
+   #:batch-successful
+   #:batch-failed
    ;; batch error entry
    #:batch-error-result
    #:batch-error-code

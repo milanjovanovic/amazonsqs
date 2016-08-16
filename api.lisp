@@ -41,6 +41,17 @@
   (make-instance 'awscredentials :access-key access-key :secret-key secret-key))
 
 
+;;; idea stolen from zs3 library
+(defmacro with-cached-stream (&body body)
+  "Reusing thread-local cached connection"
+  `(let ((*cached-stream* nil)
+	 (*do-cache-stream* t))
+     (unwind-protect
+	  (progn ,@body)
+       (when *cached-stream*
+         (ignore-errors (close *cached-stream*))))))
+
+
 (defun add-permission (queue-url label permissions &key (sqs *sqs*))
   (let ((request (make-instance 'request
 				:action "AddPermission"
