@@ -34,7 +34,9 @@
    #:awscredentials
    #:sqs
    #:connection-pooling-sqs
-   #:with-cached-connection
+   #:with-cached-stream
+   #:*do-cache-stream*
+   #:*cached-stream*
    #:close-sqs
    #:response
    #:response-status

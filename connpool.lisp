@@ -73,6 +73,8 @@
 
 (defmethod close-pool ((pool connection-pool))
   (bt:with-lock-held ((pool-lock pool))
-    (do ((free (pool-free pool) (decf (pool-free pool))))
-	((= free 0))
-      (ignore-errors (close (queue-get (pool-queue pool)))))))
+    (do* ((start-free (pool-free pool))
+	  (free start-free (decf (pool-free pool))))
+	 ((= free 0))
+      (ignore-errors (close (queue-get (pool-queue pool))))
+      (setf (pool-free pool) start-free))))

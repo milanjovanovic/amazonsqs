@@ -42,17 +42,14 @@
 
 
 ;;; idea stolen from zs3 library
-(defparameter *saved-stream* nil)
-(defparameter *close-stream* t)
-
-(defmacro with-cached-connection (&body body)
+(defmacro with-cached-stream (&body body)
   "Reusing thread-local cached connection"
-  `(let ((*saved-stream* nil)
-	 (*close-stream* nil))
+  `(let ((*cached-stream* nil)
+	 (*do-cache-stream* t))
      (unwind-protect
 	  (progn ,@body)
-       (when *saved-stream*
-         (ignore-errors (close *saved-stream*))))))
+       (when *cached-stream*
+         (ignore-errors (close *cached-stream*))))))
 
 
 (defun add-permission (queue-url label permissions &key (sqs *sqs*))

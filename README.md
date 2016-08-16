@@ -21,7 +21,7 @@ Create aws credentials
 CL-USER> (defparameter *creds* (make-instance 'awscredentials :access-key "ACCESS_KEY" :secret-key "SECRET_KEY"))
 *CREDS*
 ```
-then create sqs client using **SQS** class
+then create sqs client using **SQS** class (this client opens and closes connection on every request)
 ```
 CL-USER> (defparameter *mysqs* (make-instance 'sqs :aws-credentials *creds*))
 *MYSQS*
@@ -31,14 +31,42 @@ or using **CONNECTION-POOLING-SQS** class
 CL-USER> (defparameter *mysqs* (make-instance 'connection-pooling-sqs :aws-credentials *creds* :pool-size 5))
 *MYSQS*
 ```
-For multi-threaded usage you can use macro **WITH-CACHED-CONNECTION** with simple **SQS** client, this way every thread has thread-local saved connection that will try to reuse:
-```
-CL-USER> (with-cached-connection 
-	     (dotimes (i 100)
-	       (let ((message (receive-message .....
-```	       
+### Multi-threaded usage
+For connection-per-thread **SQS** client class can be used with \***DO-CACHE-STREAM**\* set to **T**. Stream is cached into \***CACHED-STREAM**\* var.
 
-If you don't want to create connection per thread then use **CONNECTION-POOLING-SQS** client which is connection pooling thread safe implementation.
+When using **BORDEAUX-THREADS** library for spawning threads there is no need to manually rebind \***CACHED-STREAM**\* but when using implementation specific threading this had to be done:
+```
+(sb-thread:make-thread (lambda ()
+				   (let ((*cached-stream* nil))
+				     (dotimes (i 100)
+				       (send-message queue-url "msg body" :sqs *simple-sqs*))
+				       ;; need to close client in every thread before exiting 
+				     (close-sqs *simple-sqs*))))
+				     
+```				      
+
+
+For sake of simplicity use **WITH-CACHED-STREAM** macro with SQS client that does rebinding and closing under the hood:
+```
+CL-USER> (with-cached-stream
+	   (dotimes (i 100)
+	     (send-message queue-url "msg body" :sqs *simple-sqs*)))
+
+
+```
+or:
+```
+(sb-thread:make-thread (lambda () 
+				  (with-cached-stream
+				    (dotimes (i 100)
+				      (send-message queue-url "msg body" :sqs *simple-sqs*)))))
+				      ```
+
+
+#### Connection Pooling Multi-threaded client
+
+Much simpler (no special macros,no rebinding in threads and no connection-per-thread) is to use thread-safe **CONNECTION-POOLING-SQS** client which maintains pool of connections.
+
 
 ### Basic Queue Operations
 

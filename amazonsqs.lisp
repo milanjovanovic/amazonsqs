@@ -34,6 +34,12 @@
 (alexandria:define-constant +signature-method+ "HmacSHA256" :test 'equal)
 (alexandria:define-constant +signature-version+ "2" :test 'equal)
 
+(defparameter *cached-stream* nil)
+(defparameter *do-cache-stream* nil)
+
+(push (cons '*cached-stream* nil) bordeaux-threads:*default-special-bindings*)
+
+
 (defclass awscredentials ()
   ((access-key :initarg :access-key :accessor access-key)
    (secret-key :initarg :secret-key :accessor secret-key)))
@@ -54,8 +60,8 @@
 (defgeneric close-sqs (sqs))
 
 (defmethod close-sqs ((sqs sqs))
-  (when *saved-stream*
-    (ignore-errors (close *saved-stream*))
+  (when *cached-stream*
+    (ignore-errors (close *cached-stream*))
     (values)))
 
 (defmethod close-sqs ((sqs connection-pooling-sqs))

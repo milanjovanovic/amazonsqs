@@ -64,7 +64,7 @@
   (declare (ignore encoding))
   parameter-value)
 
-(defun http-call (hostname parameters saved-stream retry)
+(defun http-call (hostname parameters cached-stream retry)
   (flet ((drakma-call (stream)
 	   (drakma:http-request hostname
 				:parameters parameters
@@ -74,26 +74,26 @@
 				:stream stream)))
     (if retry
 	(handler-case
-	    (drakma-call saved-stream)
+	    (drakma-call cached-stream)
 	  ((or
 	    stream-error
 	    cl+ssl::ssl-error
 	    ;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
 	    (and drakma::drakma-error (not drakma:parameter-error))
 	    #+lispworks comm:socket-error) ()
-	    (when saved-stream
-	      (ignore-errors (close saved-stream)))
+	    (when cached-stream
+	      (ignore-errors (close cached-stream)))
 	    (drakma-call nil)))
-	(drakma-call saved-stream))))
+	(drakma-call cached-stream))))
 
 (defmethod process-request ((sqs sqs) (request request))
   (let ((signed-parameters (sign-request sqs request)))
     (multiple-value-bind (response response-status-code _ __ stream)
-	(http-call (get-request-host sqs request) signed-parameters *saved-stream* (not *close-stream*))
+	(http-call (get-request-host sqs request) signed-parameters *cached-stream* *do-cache-stream*)
       (declare (ignore _ __))
       (multiple-value-bind (f s) (create-response (cxml:make-source response))
-	(when (not *close-stream*)
-	  (setf *saved-stream* stream))
+	(when *do-cache-stream*
+	  (setf *cached-stream* stream))
 	(if s
 	    (values f (make-instance 'response :request-id s :status response-status-code))
 	    (make-instance 'response :request-id f :status response-status-code))))))
