@@ -60,7 +60,7 @@ or:
 				  (with-cached-stream
 				    (dotimes (i 100)
 				      (send-message queue-url "msg body" :sqs *simple-sqs*)))))
-				      ```
+```
 
 
 #### Connection Pooling Multi-threaded client
