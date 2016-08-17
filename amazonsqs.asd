@@ -4,6 +4,7 @@
   :description "Amazon Simple Queue Service CL client"
   :author "Milan Jovanovic <milanj@gmail.com>"
   :license "BSD"
+  :version "0.0.1"
   :serial t
   :depends-on (#:drakma #:cxml #:alexandria #:ironclad #:bordeaux-threads)
   :components ((:file "package")
