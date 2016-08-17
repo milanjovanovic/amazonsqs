@@ -64,6 +64,7 @@
   (declare (ignore encoding))
   parameter-value)
 
+
 (defun http-call (hostname parameters cached-stream retry)
   (flet ((drakma-call (stream)
 	   (drakma:http-request hostname
@@ -72,19 +73,22 @@
 				:url-encoder #'no-encoder
 				:close nil
 				:stream stream)))
-    (if retry
-	(handler-case
-	    (drakma-call cached-stream)
-	  ((or
-	    stream-error
-	    cl+ssl::ssl-error
-	    ;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
-	    (and drakma::drakma-error (not drakma:parameter-error))
-	    #+lispworks comm:socket-error) ()
-	    (when cached-stream
-	      (ignore-errors (close cached-stream)))
-	    (drakma-call nil)))
-	(drakma-call cached-stream))))
+    (handler-bind ((
+		    (or stream-error cl+ssl::ssl-error
+			;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
+			(and drakma::drakma-error (not drakma:parameter-error))
+			#+lispworks comm:socket-error)
+		     (lambda (c)
+		       (declare (ignorable c))
+		      #+nil
+		      (cl-log:log-message :fatal "~A" (trivial-backtrace:print-backtrace
+						       c :output nil :verbose t))
+		      (when cached-stream
+			(ignore-errors (close cached-stream)))
+		      (when (and retry cached-stream)
+			(return-from http-call (drakma-call nil))))))
+      (drakma-call cached-stream))))
+
 
 (defmethod process-request ((sqs sqs) (request request))
   (let ((signed-parameters (sign-request sqs request)))
@@ -102,10 +106,11 @@
   (let ((signed-parameters (sign-request sqs request))
 	(cached-stream (get-connection (sqs-connection-pool sqs))))
     (multiple-value-bind (response response-status-code _ __ stream)
+	;; we should return connection to pool in case of unhandled error
 	(handler-bind (((not warning) #'(lambda (c)
-					  ;; FIXME, cached-stream or stream ???
-					  (add-connection (sqs-connection-pool sqs) cached-stream)
-					  (signal c))))
+					  (declare (ignore c))
+					  ;; FIXME, should we just close stream and add nil back to pool ?!?!
+					  (add-connection (sqs-connection-pool sqs) cached-stream))))
 	  (http-call (get-request-host sqs request) signed-parameters cached-stream t))
       (declare (ignore _ __))
       (add-connection (sqs-connection-pool sqs) stream)

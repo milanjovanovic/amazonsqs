@@ -63,7 +63,7 @@ or:
 ```
 
 
-#### Connection Pooling Multi-threaded client
+### Connection Pooling Multi-threaded client
 
 Much simpler (no special macros,no rebinding in threads and no connection-per-thread) is to use thread-safe **CONNECTION-POOLING-SQS** client which maintains pool of connections.
 
