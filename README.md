@@ -21,7 +21,7 @@ Create aws credentials
 CL-USER> (defparameter *creds* (make-instance 'awscredentials :access-key "ACCESS_KEY" :secret-key "SECRET_KEY"))
 *CREDS*
 ```
-then create sqs client using **SQS** class (this client opens and closes connection on every request)
+then create sqs client using **SQS** class (default behaviour of this client is opening and closing connections on every request)
 ```
 CL-USER> (defparameter *mysqs* (make-instance 'sqs :aws-credentials *creds*))
 *MYSQS*
@@ -34,9 +34,12 @@ CL-USER> (defparameter *mysqs* (make-instance 'connection-pooling-sqs :aws-crede
 ### Multi-threaded usage
 For connection-per-thread **SQS** client class can be used with \***DO-CACHE-STREAM**\* set to **T**. Stream is cached into \***CACHED-STREAM**\* var.
 
-When using **BORDEAUX-THREADS** library for spawning threads there is no need to manually rebind \***CACHED-STREAM**\* but when using implementation specific threading this had to be done:
+There is macro **WITH-CACHED-STREAM** that ensure per-thread binding that can be used with SQS client class.
+When not using  **WITH-CACHED-STREAM** rebinding in every thread is necessary (closing of client also)
+
 ```
 (sb-thread:make-thread (lambda ()
+                      ;; assuming that \***DO-CACHE-STREAM**\* is bind to T
 				   (let ((*cached-stream* nil))
 				     (dotimes (i 100)
 				       (send-message queue-url "msg body" :sqs *simple-sqs*))
@@ -46,20 +49,19 @@ When using **BORDEAUX-THREADS** library for spawning threads there is no need to
 ```				      
 
 
-For sake of simplicity use **WITH-CACHED-STREAM** macro with SQS client that does rebinding and closing under the hood:
+**WITH-CACHED-STREAM** example:
 ```
-CL-USER> (with-cached-stream
-	   (dotimes (i 100)
-	     (send-message queue-url "msg body" :sqs *simple-sqs*)))
-
-
-```
-or:
-```
-(sb-thread:make-thread (lambda () 
-				  (with-cached-stream
-				    (dotimes (i 100)
-				      (send-message queue-url "msg body" :sqs *simple-sqs*)))))
+(progn
+	   (dotimes (i 10)
+	     (sb-thread:make-thread  (lambda ()
+				       (with-cached-stream
+					 (dotimes (i 100)
+					   (send-message *queue-url* "message body" :sqs *simple-sqs*))))))
+	   (dotimes (i 10)
+	     (with-cached-stream
+	       (dotimes (i 100)
+		 (send-message *queue-url* "message body" :sqs *simple-sqs*)))))
+		 
 ```
 
 
