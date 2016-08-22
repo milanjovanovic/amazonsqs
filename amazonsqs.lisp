@@ -37,9 +37,6 @@
 (defparameter *cached-stream* nil)
 (defparameter *do-cache-stream* nil)
 
-(push (cons '*cached-stream* nil) bordeaux-threads:*default-special-bindings*)
-
-
 (defclass awscredentials ()
   ((access-key :initarg :access-key :accessor access-key)
    (secret-key :initarg :secret-key :accessor secret-key)))
