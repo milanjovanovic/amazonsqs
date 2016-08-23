@@ -71,10 +71,11 @@
 
 (defgeneric close-pool (pool))
 
+
 (defmethod close-pool ((pool connection-pool))
   (bt:with-lock-held ((pool-lock pool))
-    (do* ((start-free (pool-free pool))
-	  (free start-free (decf (pool-free pool))))
-	 ((= free 0))
-      (ignore-errors (close (queue-get (pool-queue pool))))
-      (setf (pool-free pool) start-free))))
+    (let ((queue (pool-queue pool)))
+      (do ((stream (queue-get queue) (queue-get queue)))
+	  ((null stream) pool)
+	(when stream
+	  (ignore-errors (close stream)))))))
