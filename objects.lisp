@@ -45,7 +45,7 @@
 		       :accessor message-attributes
 		       :initform nil)
    (attributes :initarg :attributes
-	       :accessor attributes
+	       :accessor message-base-attributes
 	       :initform nil)
    (attributes-md5 :initarg :attributes-md5
 		   :accessor message-attributes-md5

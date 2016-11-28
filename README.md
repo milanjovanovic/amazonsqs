@@ -21,7 +21,7 @@ Create aws credentials
 CL-USER> (defparameter *creds* (make-instance 'awscredentials :access-key "ACCESS_KEY" :secret-key "SECRET_KEY"))
 *CREDS*
 ```
-then create sqs client using **SQS** class (default behaviour of this client is opening and closing connections on every request)
+then create sqs client using **SQS** class (default behaviour of this client is opening and closing connections on every request unless \***DO-CACHE-STREAM**\* is set to **T**)
 ```
 CL-USER> (defparameter *mysqs* (make-instance 'sqs :aws-credentials *creds*))
 *MYSQS*
@@ -32,38 +32,8 @@ CL-USER> (defparameter *mysqs* (make-instance 'connection-pooling-sqs :aws-crede
 *MYSQS*
 ```
 ### Multi-threaded usage
-For connection-per-thread **SQS** client class can be used with \***DO-CACHE-STREAM**\* set to **T**. Stream is cached into \***CACHED-STREAM**\* var.
-
+**SQS** client class is thread-safe unless \***DO-CACHE-STREAM**\* is set to **T**, in that case you need to rebind  \***CACHED-STREAM**\* in every thread.
 There is macro **WITH-CACHED-STREAM** that ensure per-thread binding that can be used with SQS client class.
-When not using  **WITH-CACHED-STREAM** rebinding in every thread is necessary (closing of client also)
-
-```
-(sb-thread:make-thread (lambda ()
-                      ;; assuming that \***DO-CACHE-STREAM**\* is bind to T
-				   (let ((*cached-stream* nil))
-				     (dotimes (i 100)
-				       (send-message queue-url "msg body" :sqs *simple-sqs*))
-				       ;; need to close client in every thread before exiting 
-				     (close-sqs *simple-sqs*))))
-				     
-```				      
-
-
-**WITH-CACHED-STREAM** example:
-```
-(progn
-	   (dotimes (i 10)
-	     (sb-thread:make-thread  (lambda ()
-				       (with-cached-stream
-					 (dotimes (i 100)
-					   (send-message *queue-url* "message body" :sqs *simple-sqs*))))))
-	   (dotimes (i 10)
-	     (with-cached-stream
-	       (dotimes (i 100)
-		 (send-message *queue-url* "message body" :sqs *simple-sqs*)))))
-		 
-```
-
 
 ### Connection Pooling Multi-threaded client
 
@@ -143,7 +113,7 @@ CL-USER> (message-body (first *received-msgs*))
 "example message body"
 CL-USER> (message-attributes (first *received-msgs*))
 (#<MESSAGE-ATTRIBUTE MessageAttribute-1>)
-CL-USER> (attributes (first *received-msgs*))
+CL-USER> (message-base-attributes (first *received-msgs*))
 (("SentTimestamp" . "1449321567628") ("ApproximateReceiveCount" . "2")
  ("ApproximateFirstReceiveTimestamp" . "1449321656050")
  ("SenderId" . "AIDAJC4FX3MM62J3KPCT4"))

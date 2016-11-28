@@ -141,8 +141,8 @@
 (defun add-attributes (initial)
   (let* ((message (first (getf initial :value)))
 	 (temp (getf initial :temp))
-	 (attributes (attributes message)))
-    (setf (attributes message)
+	 (attributes (message-base-attributes message)))
+    (setf (message-base-attributes message)
 	  (cons
 	   (cons (getf temp :name)
 		 (getf temp :value))

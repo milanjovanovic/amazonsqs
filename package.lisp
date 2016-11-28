@@ -47,7 +47,7 @@
    #:message-body
    #:message-body-md5
    #:message-receipt-handle
-   #:attributes
+   #:message-base-attributes
    #:message-attributes
    #:message-attributes-md5
    ;; batch entries
