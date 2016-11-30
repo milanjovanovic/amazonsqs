@@ -30,7 +30,7 @@
 (in-package #:amazonsqs)
 
 (alexandria:define-constant +api-version+ "2012-11-05" :test 'equal)
-(alexandria:define-constant +default-region+ "sqs.us-east-1.amazonaws.com" :test 'equal)
+(alexandria:define-constant +default-region+ "http://sqs.us-east-1.amazonaws.com" :test 'equal)
 (alexandria:define-constant +signature-method+ "HmacSHA256" :test 'equal)
 (alexandria:define-constant +signature-version+ "2" :test 'equal)
 
@@ -41,14 +41,25 @@
   ((access-key :initarg :access-key :accessor access-key)
    (secret-key :initarg :secret-key :accessor secret-key)))
 
-(defclass sqs ()
+(defun valid-region-p (region)
+  (or
+   (search "http://" region :start2 0 :end2 8)
+   (search "https://" region :start2 0 :end2 8)))
+
+(defclass sqs () 
   ((aws-credentials :initarg :aws-credentials :accessor sqs-aws-credentials :initform (error "Need aws-credentials !!!"))
-   (region :initarg :region :accessor sqs-region :initform +default-region+)
-   (protocol :initarg :protocol :accessor sqs-protocol :initform :http)))
+   (region :initarg :region :accessor sqs-region :initform +default-region+)))
 
 (defclass connection-pooling-sqs (sqs)
   ((pool-size :initarg :pool-size :accessor sqs-pool-size :initform (error "Need pool size value !!!"))
    (connection-pool :accessor sqs-connection-pool)))
+
+(defmethod initialize-instance :after ((sqs sqs) &rest initargs &key &allow-other-keys)
+  (declare (ignore initargs))
+  (let ((region (sqs-region sqs)))
+    (if (valid-region-p region)
+	(setf (sqs-region sqs) (quri:uri region))
+	(error "Region must start with http or https !!!"))))
 
 (defmethod initialize-instance :after ((sqs connection-pooling-sqs) &rest initargs &key &allow-other-keys)
   (declare (ignore initargs))

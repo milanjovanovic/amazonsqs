@@ -41,10 +41,10 @@
 		   :accessor message-receipt-handle)
    (body-md5 :initarg :body-md5
 	     :accessor message-body-md5)
-   (message-attributes :initarg :message-attributes
+   (attributes :initarg :message-attributes
 		       :accessor message-attributes
 		       :initform nil)
-   (attributes :initarg :attributes
+   (base-attributes :initarg :attributes
 	       :accessor message-base-attributes
 	       :initform nil)
    (attributes-md5 :initarg :attributes-md5
@@ -168,7 +168,9 @@
   ((id :initarg :id :accessor id)
    (body :initarg :body :accessor message-body)
    (delay :initarg :delay :accessor message-delay :initform nil)
-   (attributes :initarg :attributes :accessor message-attributes :initform nil)))
+   (attributes :initarg :attributes :accessor message-attributes :initform nil)
+   (message-dedup-id :initarg :message-dedup-id :accessor message-dedup-id :initform nil)
+   (message-group-id :initarg :message-group-id :accessor message-group-id :initform nil)))
 
 (defmethod base-name ((batch-message-entry batch-message-entry))
   "SendMessageBatchRequestEntry")
@@ -181,7 +183,9 @@
 	       (format nil "~A.~A" base field)))
 	(let ((base-parameters (alist-if-not-nil (slot-api-name "Id") (id batch-message-entry)
 						 (slot-api-name "MessageBody") (message-body batch-message-entry)
-						 (slot-api-name "DelaySeconds") (message-delay batch-message-entry)))
+						 (slot-api-name "DelaySeconds") (message-delay batch-message-entry)
+						 (slot-api-name "MessageDeduplicationId") (message-dedup-id batch-message-entry)
+						 (slot-api-name "MessageGroupId") (message-group-id batch-message-entry)))
 	      (attributes-parameters (mapcan (lambda (attribute attribute-index)
 					       (create-parameters attribute batch-message-entry attribute-index index))
 					     attributes
@@ -191,7 +195,8 @@
 (defun add-message-attribute-entry (batch-message-entry message-attribute)
   (setf (message-attributes batch-message-entry)
 	(cons message-attribute
-	      (message-attributes batch-message-entry))))
+	      (message-attributes batch-message-entry)))
+  batch-message-entry)
 
 (defclass send-message-batch-action (batch-action)
   ((messages :initarg :messages :accessor messages :initform nil)))
@@ -199,7 +204,8 @@
 (defun add-message-entry (action message-entry)
   (setf (messages action)
 	(cons message-entry
-	      (messages action))))
+	      (messages action)))
+  action)
 
 (defclass delete-message-batch-action (batch-action)
   ((messages :initarg :messages :accessor messages :initform nil)))

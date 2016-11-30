@@ -21,7 +21,7 @@ Create aws credentials
 CL-USER> (defparameter *creds* (make-instance 'awscredentials :access-key "ACCESS_KEY" :secret-key "SECRET_KEY"))
 *CREDS*
 ```
-then create sqs client using **SQS** class (default behaviour of this client is opening and closing connections on every request unless \***DO-CACHE-STREAM**\* is set to **T**)
+then create sqs client using **SQS** class 
 ```
 CL-USER> (defparameter *mysqs* (make-instance 'sqs :aws-credentials *creds*))
 *MYSQS*
@@ -49,6 +49,7 @@ List queues:
 CL-USER> (list-queues :sqs *mysqs*)
 NIL
 #<RESPONSE 200>
+
 CL-USER> (setf *sqs* *mysqs*)
 CL-USER> (list-queues)
 NIL
@@ -58,6 +59,7 @@ Create queue:
 CL-USER> (create-queue "testQueue" :attributes '((:name "DelaySeconds" :value 5)))
 "http://sqs.us-east-1.amazonaws.com/0123456789/testQueue"
 #<RESPONSE 200>
+
 CL-USER> (list-queues)
 ("http://sqs.us-east-1.amazonaws.com/0123456789/testQueue")
 #<RESPONSE 200>
@@ -68,9 +70,11 @@ Getting queue url and attributes:
 CL-USER> (get-queue-url "testQueue")
 "http://sqs.us-east-1.amazonaws.com/0123456789/testQueue"
 #<RESPONSE 200>
+
 CL-USER> (get-queue-attributes (get-queue-url "testQueue") '("DelaySeconds"))
 (("DelaySeconds" . "5"))
 #<RESPONSE 200>
+
 CL-USER> (get-queue-attributes (get-queue-url "testQueue") '("All"))
 (("QueueArn" . "arn:aws:sqs:us-east-1:0123456789:testQueue")
  ("ApproximateNumberOfMessages" . "0")
@@ -102,22 +106,29 @@ Receive and delete message:
 ```
 CL-USER> (defparameter *queue-url* (get-queue-url "testQueue"))
 *QUEUE-URL*
-CL-USER> (receive-message *queue-url* :max 10 :attributes '("All") :message-attributes '("MessageAttribute-1"))
+
+CL-USER> (receive-message *queue-url* :max 10 :base-attributes '("All") :message-attributes '("MessageAttribute-1"))
 (#<MESSAGE examp... {10092419D3}>)
 #<RESPONSE 200>
+
 CL-USER> (defparameter *received-msgs* *)
 *RECEIVED-MSGS*
+
 CL-USER> (first *received-msgs*)
 #<MESSAGE examp... {1004409383}>
+
 CL-USER> (message-body (first *received-msgs*))
 "example message body"
+
 CL-USER> (message-attributes (first *received-msgs*))
 (#<MESSAGE-ATTRIBUTE MessageAttribute-1>)
+
 CL-USER> (message-base-attributes (first *received-msgs*))
 (("SentTimestamp" . "1449321567628") ("ApproximateReceiveCount" . "2")
  ("ApproximateFirstReceiveTimestamp" . "1449321656050")
  ("SenderId" . "AIDAJC4FX3MM62J3KPCT4"))
- CL-USER> (delete-message *queue-url* (message-receipt-handle (first *received-msgs*)))
+ 
+CL-USER> (delete-message *queue-url* (message-receipt-handle (first *received-msgs*)))
 #<RESPONSE 200>
 ```
 
@@ -131,7 +142,7 @@ CL-USER> (send-message-batch *queue-url* '((:id "id1" :body "1. msg body")
 
 #<BATCH-REQUEST-RESULT :successful 3, failed: 0 {1003CF87C3}>
 #<RESPONSE 200>
-CL-USER> 
+
 CL-USER> (batch-successful *)
 (#<SEND-MESSAGE-BATCH-RESULT id1> #<SEND-MESSAGE-BATCH-RESULT id2>
  #<SEND-MESSAGE-BATCH-RESULT id3>)
@@ -140,46 +151,49 @@ or the same thing with CLOS objects:
 ```
 CL-USER> (defparameter *send-message-action* (make-instance 'send-message-batch-action))
 *SEND-MESSAGE-ACTION*
-CL-USER> (add-message-entry *send-message-action* (make-instance 'batch-message-entry :id "id100"  :body "another msg"))
 
-(#<BATCH-MESSAGE-ENTRY {1006C78923}>)
+CL-USER> (add-message-entry *send-message-action* (make-instance 'batch-message-entry :id "id100" :body "another msg"))
+#<SEND-MESSAGE-BATCH-ACTION {10098339A3}>
+
 CL-USER> (add-message-entry *send-message-action* (make-instance 'batch-message-entry :id "id200"  :body "another msg"
 								 :attributes (list
 									      (make-instance 'message-attribute 
 											     :type :string
 											     :value "foo"
 											     :name "AttrBatchName"))))
-(#<BATCH-MESSAGE-ENTRY {1007007903}> #<BATCH-MESSAGE-ENTRY {1006C78923}>)
+#<SEND-MESSAGE-BATCH-ACTION {10098339A3}>
+
 CL-USER> (send-message-batch *queue-url* *send-message-action*)
 #<BATCH-REQUEST-RESULT :successful 2, failed: 0 {10043C1383}>
 #<RESPONSE 200>
-CL-USER> 
-
 ```
 deleting more than one message:
 ```
 CL-USER> (defparameter *received-messages* (receive-message *queue-url* :max 5))
 *RECEIVED-MESSAGES*
+
 CL-USER> (defparameter *delete-message-batch-action* (make-instance 'delete-message-batch-action))
 *DELETE-MESSAGE-BATCH-ACTION*
+
 CL-USER> (add-message-entry *delete-message-batch-action* 
 			    (make-instance 'batch-message-delete-entry 
 					   :id "message-1"
 					   :receipt-handle (message-receipt-handle (first *received-messages*))))
-(#<BATCH-MESSAGE-DELETE-ENTRY {1008A49A13}>)
+#<DELETE-MESSAGE-BATCH-ACTION {1009D5A013}>
+
 CL-USER> (add-message-entry *delete-message-batch-action* 
 			    (make-instance 'batch-message-delete-entry 
 					   :id "message-2"
 					   :receipt-handle (message-receipt-handle (second *received-messages*))))
-(#<BATCH-MESSAGE-DELETE-ENTRY {1008A70AB3}>
- #<BATCH-MESSAGE-DELETE-ENTRY {1008A49A13}>)
+#<DELETE-MESSAGE-BATCH-ACTION {1009D5A013}>
+
  CL-USER> (delete-message-batch *queue-url* *delete-message-batch-action*)
 #<BATCH-REQUEST-RESULT :successful 2, failed: 0 {100A1C1383}>
 #<RESPONSE 200>
+
 CL-USER> (batch-successful *)
 (#<DELETE-MESSAGE-BATCH-RESULT message-1>
  #<DELETE-MESSAGE-BATCH-RESULT message-2>)
-CL-USER> 
 ```
 the same without CLOS:
 ```
@@ -187,9 +201,9 @@ CL-USER> (delete-message-batch *queue-url* `((:id "ID1" :receipt-handle ,(messag
 					     (:id "ID2" :receipt-handle ,(message-receipt-handle (second *received-messages*)))))
 #<BATCH-REQUEST-RESULT :successful 2, failed: 0 {10049BA243}>
 #<RESPONSE 200>
+
 CL-USER> (batch-successful *)
 (#<DELETE-MESSAGE-BATCH-RESULT ID1> #<DELETE-MESSAGE-BATCH-RESULT ID2>)
-CL-USER> 
 ```
 
 
@@ -202,15 +216,28 @@ CL-USER>
 *class*
 **AWSCREDENTIALS**
 
+- *slot* access-key
+- *slot* secret-key
+
 ***
 
 *class*
 **SQS**
 
+* *slot* aws-credentials
+
+* *slot* region
+
 ***
 
 *class*
 **CONNECTION-POOLING-SQS**
+
+* *slot* aws-credentials
+
+* *slot* region 
+
+* *slot* pool-size 
 
 ***
 
@@ -228,7 +255,7 @@ CL-USER>
 
 *accessor* **message-attributes**
 
-*accessor* **attributes**
+*accessor* **message-base-attributes**
 
 *accessor* **message-attributes-md5**
 ***
@@ -283,13 +310,30 @@ Object of this class is returned when one of **batch** requests are called
 
 
 ### Functions/Methods
+
 **add-permission** queue-url label permissions &key sqs => response
+
+* label -> The unique identification of the permission you're setting
+
+* permisions -> list of plists where each of plist need to have :aws-account-id and :action-name keywords
+```
+AMAZONSQS> (add-permission *QUEUE-URL* "testLabel" '((:aws-account-id 123456789 :action-name "ReceiveMessage")
+		        		(:aws-account-id 987654321 :action-name "DeleteMessage")))
+```
 
 **change-message-visibility** queue-url receipt-handle visibility-timeout &key sqs => response
 
 **change-message-visibility-batch** queue-url entries &key sqs =>
 
-**create-queue** queue-name &key attributes sqs => 
+**create-queue** queue-name &key attributes sqs =>
+
+* queue-name -> desired name of queue (for FIFO queue name need to have .fifo sufix)
+
+* attributes -> list of plists where each plist need to have :name and :value keywords
+```
+AMAZONSQS> (create-queue "TestQueue.fifo" :attributes '((:name "FifoQueue" :value "true")
+			 	 		   	(:name "DelaySeconds" :value 10)))
+```
 
 **delete-message** queue-url receipt-handle &key sqs =>
 

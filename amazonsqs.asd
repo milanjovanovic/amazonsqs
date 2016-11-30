@@ -6,7 +6,7 @@
   :license "BSD"
   :version "0.0.1"
   :serial t
-  :depends-on (#:drakma #:cxml #:alexandria #:ironclad #:bordeaux-threads)
+  :depends-on (#:drakma #:cxml #:alexandria #:ironclad #:bordeaux-threads #:quri)
   :components ((:file "package")
 	       (:file "amazonsqs")
 	       (:file "utils")

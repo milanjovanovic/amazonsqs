@@ -15,7 +15,7 @@
 ;;;;
 ;;;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESSED
 ;;;; OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-;;;; WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+;;;; WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARsek TICULAR PURPOSE
 ;;;; ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
 ;;;; DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
 ;;;; DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
@@ -32,30 +32,27 @@
 (defclass request ()
   ((action :initarg :action :accessor request-action)
    (parameters :initarg :parameters :accessor request-parameters :initform nil)
-   (queue-url :initarg :queue-url :accessor request-query-url :initform nil)))
+   (uri :initarg :queue-url :accessor request-uri :initform nil)))
+
+(defun make-request (action parameters &optional uri)
+  (let ((request (make-instance 'request :action action :parameters parameters)))
+    (when uri
+      (setf (request-uri request) (quri:uri uri)))
+    request))
 
 (defgeneric process-request (sqs request)
   (:documentation "Generic function that do real work of sending request to amazon and returning something meaningful"))
 
-(defun get-request-host (sqs request)
-  (let ((query-url (request-query-url request)))
-    (if query-url
-	query-url
-	(concatenate 'string
-		     (if (eq (sqs-protocol sqs) :https)
-			 "https://"
-			 "http://")
-		     (sqs-region sqs)))))
+(defun get-request-uri (sqs request)
+  (or (request-uri request)
+      (sqs-region sqs)))
 
 (defun sign-request (sqs request)
   (let* ((parameters (request-parameters request))
 	 (full-parameters (add-base-parameters-and-encode sqs parameters (request-action request)))
 	 (sorted-full-parameters (sort full-parameters #'string< :key #'car))
 	 (parameters-as-string (parameters-to-string sorted-full-parameters))
-	 (canonical-string (create-canonical-string parameters-as-string
-						    (sqs-region sqs)
-						    (get-request-host sqs request)
-						    (sqs-protocol sqs)))
+	 (canonical-string (create-canonical-string (get-request-uri sqs request) parameters-as-string))
 	 (signature (sign-string canonical-string (secret-key (sqs-aws-credentials sqs)))))
     (setf (request-parameters request)
 	  (acons "Signature" (amazon-encode signature) sorted-full-parameters))))
@@ -63,7 +60,6 @@
 (defun no-encoder (parameter-value encoding)
   (declare (ignore encoding))
   parameter-value)
-
 
 (defun http-call (hostname parameters cached-stream retry)
   (flet ((drakma-call (stream)
@@ -89,11 +85,10 @@
 			(return-from http-call (drakma-call nil))))))
       (drakma-call cached-stream))))
 
-
 (defmethod process-request ((sqs sqs) (request request))
   (let ((signed-parameters (sign-request sqs request)))
     (multiple-value-bind (response response-status-code _ __ stream)
-	(http-call (get-request-host sqs request) signed-parameters *cached-stream* *do-cache-stream*)
+	(http-call (quri:render-uri (get-request-uri sqs request)) signed-parameters *cached-stream* *do-cache-stream*)
       (declare (ignore _ __))
       (multiple-value-bind (f s) (create-response (cxml:make-source response))
 	(when *do-cache-stream*
@@ -111,7 +106,7 @@
 					  (declare (ignore c))
 					  ;; FIXME, should we just close stream and add nil back to pool ?!?!
 					  (add-connection (sqs-connection-pool sqs) cached-stream))))
-	  (http-call (get-request-host sqs request) signed-parameters cached-stream t))
+	  (http-call (quri:render-uri (get-request-uri sqs request)) signed-parameters cached-stream t))
       (declare (ignore _ __))
       (add-connection (sqs-connection-pool sqs) stream)
       (multiple-value-bind (f s) (create-response (cxml:make-source response))
@@ -119,14 +114,11 @@
 	    (values f (make-instance 'response :request-id s :status response-status-code))
 	    (make-instance 'response :request-id f :status response-status-code))))))
 
-(defun create-canonical-string (url region host protocol)
-  ;; looks like we don't need regions:443 if protocol is https
-  (declare (ignore protocol))
-  (let* ((extra-dash-index (find-n-char-match host 3 #\/))
-	 (extra-path (and extra-dash-index (subseq host extra-dash-index))))
-    (format nil "~A~%~A~%~A~%~A"
-	    "POST" region 
-	    (if extra-path extra-path "/") url)))
+(defun create-canonical-string (uri parameters)
+  (format nil "~A~%~A~%~A~%~A"
+	  "POST" (quri:uri-host uri) 
+	  (or (quri:uri-path uri) "/")
+	  parameters))
 
 (defun add-base-parameters-and-encode (sqs params action)
   (append `(("Action" . ,(amazon-encode action))
