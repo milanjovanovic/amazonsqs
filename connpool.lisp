@@ -2,10 +2,9 @@
 
 (defstruct (queue
 	    (:constructor make-queue (size &aux (data (make-array size :initial-element nil))
-					   (head-index 0)
-					   (tail-index 0)
-					   (count 0))))
-  size data head-index tail-index count)
+						(head 0)
+						(count 0))))
+  size data head count)
 
 (defun queue-full-p (queue)
   (= (queue-count queue)
@@ -15,34 +14,37 @@
   (= (queue-count queue) 0))
 
 (defun queue-add (queue data)
-  (when (not (queue-full-p queue))
-    (let* ((data-vec (queue-data queue))
-	   (tail-index (queue-tail-index queue)))
-      (setf (svref data-vec tail-index) data
-	    (queue-tail-index queue) (mod (1+ tail-index) (queue-size queue)))
-      (incf (queue-count queue))
-      data)))
+  (if (not (queue-full-p queue))
+      (let* ((data-vec (queue-data queue))
+	     (tail (mod (+ (queue-count queue)
+			   (queue-head queue))
+			(queue-size queue))))
+	(setf (svref data-vec tail) data)
+	(incf (queue-count queue))
+	(values data t))
+      (values data nil)))
 
 (defun queue-get (queue)
-  (when (not (queue-empty-p queue))
-    (let* ((data-vec (queue-data queue))
-	   (head-index (queue-head-index queue))
-	   (data (svref data-vec head-index)))
-      (setf (svref data-vec head-index) nil
-	    (queue-head-index queue) (mod (1+ head-index) (queue-size queue)))
-      (decf (queue-count queue))
-      data)))
+  (if (not (queue-empty-p queue))
+      (let* ((data-vec (queue-data queue))
+	     (head (queue-head queue))
+	     (data (svref data-vec head)))
+	(setf (svref data-vec head) nil
+	      (queue-head queue) (mod (1+ head) (queue-size queue)))
+	(decf (queue-count queue))
+	(values data t))
+      (values nil nil)))
 
 (defclass connection-pool ()
   ((size :initarg :size :accessor pool-size)
    (queue :initarg :queue :accessor pool-queue)
-   (free :initarg :free :accessor pool-free)
    (lock :accessor pool-lock :initform (bt:make-lock "connection pool lock"))
-   (condition-var :accessor pool-condition-var :initform (bt:make-condition-variable :name "connection pool condition var"))))
+   (condition-var :accessor pool-condition-var
+		  :initform (bt:make-condition-variable :name "connection pool condition var"))
+   (free :initarg :free :accessor pool-free)))
 
 (defun make-connection-pool (size)
   (make-instance 'connection-pool :size size :queue (make-queue size) :free size))
-
 
 (defgeneric get-connection (pool))
 
@@ -58,19 +60,15 @@
 
 (defmethod add-connection ((pool connection-pool) data)
   (bt:with-lock-held ((pool-lock pool))
-    (when (not (queue-full-p (pool-queue pool)))
-      (queue-add (pool-queue pool) data)
-      (incf (pool-free pool))
-      (bt:condition-notify (pool-condition-var pool)))))
-
-(defgeneric increase-free (pool))
-
-(defmethod increase-free ((pool connection-pool))
-  (bt:with-lock-held ((pool-lock pool))
-    (incf (pool-free pool))))
+    (if (not (queue-full-p (pool-queue pool)))
+	(progn
+	  (queue-add (pool-queue pool) data)
+	  (incf (pool-free pool))
+	  (bt:condition-notify (pool-condition-var pool)))
+	;; FIXME, don't signal error
+	(error "Queue is full"))))
 
 (defgeneric close-pool (pool))
-
 
 (defmethod close-pool ((pool connection-pool))
   (bt:with-lock-held ((pool-lock pool))
