@@ -139,7 +139,7 @@
   "MessageAttribute")
 
 (defun make-message-attribute (name type value)
-  (make-instance 'message-attributes :name name :type type :value value))
+  (make-instance 'message-attribute :name name :type type :value value))
 
 (defun attribute-type-as-string (type)
   (ecase type

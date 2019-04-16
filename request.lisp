@@ -69,20 +69,15 @@
 				:url-encoder #'no-encoder
 				:close nil
 				:stream stream)))
-    (handler-bind ((
-		    (or stream-error cl+ssl::ssl-error
-			;; too bad that we need to handle drakma general error here but sometimes this will be signaled on closed stream
-			(and drakma::drakma-error (not drakma:parameter-error))
-			#+lispworks comm:socket-error)
+    (handler-bind (((and condition
+			 (not warning)
+			 (not drakma:parameter-error))
 		     (lambda (c)
 		       (declare (ignorable c))
-		      #+nil
-		      (cl-log:log-message :fatal "~A" (trivial-backtrace:print-backtrace
-						       c :output nil :verbose t))
-		      (when cached-stream
-			(ignore-errors (close cached-stream)))
-		      (when (and retry cached-stream)
-			(return-from http-call (drakma-call nil))))))
+		       (when cached-stream
+			 (ignore-errors (close cached-stream)))
+		       (when (and retry cached-stream)
+			 (return-from http-call (drakma-call nil))))))
       (drakma-call cached-stream))))
 
 (defmethod process-request ((sqs sqs) (request request))
@@ -101,11 +96,10 @@
   (let ((signed-parameters (sign-request sqs request))
 	(cached-stream (get-connection (sqs-connection-pool sqs))))
     (multiple-value-bind (response response-status-code _ __ stream)
-	;; we should return connection to pool in case of unhandled error
 	(handler-bind (((not warning) #'(lambda (c)
 					  (declare (ignore c))
-					  ;; FIXME, should we just close stream and add nil back to pool ?!?!
-					  (add-connection (sqs-connection-pool sqs) cached-stream))))
+					  (ignore-errors (close cached-stream))
+					  (add-connection (sqs-connection-pool sqs) nil))))
 	  (http-call (quri:render-uri (get-request-uri sqs request)) signed-parameters cached-stream t))
       (declare (ignore _ __))
       (add-connection (sqs-connection-pool sqs) stream)

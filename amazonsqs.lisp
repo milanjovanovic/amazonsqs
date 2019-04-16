@@ -47,23 +47,32 @@
    (search "https://" region :start2 0 :end2 8)))
 
 (defclass sqs () 
-  ((aws-credentials :initarg :aws-credentials :accessor sqs-aws-credentials :initform (error "Need aws-credentials !!!"))
-   (region :initarg :region :accessor sqs-region :initform +default-region+)))
+  ((aws-credentials :initarg :aws-credentials
+		    :accessor sqs-aws-credentials
+		    :initform (error "Need aws-credentials !!!"))
+   (region :initarg :region
+	   :accessor sqs-region
+	   :initform +default-region+)))
 
 (defclass connection-pooling-sqs (sqs)
-  ((pool-size :initarg :pool-size :accessor sqs-pool-size :initform (error "Need pool size value !!!"))
+  ((pool-size :initarg :pool-size
+	      :accessor sqs-pool-size
+	      :initform (error "Need pool size value !!!"))
    (connection-pool :accessor sqs-connection-pool)))
 
-(defmethod initialize-instance :after ((sqs sqs) &rest initargs &key &allow-other-keys)
+(defmethod initialize-instance :after ((sqs sqs)
+				       &rest initargs &key &allow-other-keys)
   (declare (ignore initargs))
   (let ((region (sqs-region sqs)))
     (if (valid-region-p region)
 	(setf (sqs-region sqs) (quri:uri region))
 	(error "Region must start with http or https !!!"))))
 
-(defmethod initialize-instance :after ((sqs connection-pooling-sqs) &rest initargs &key &allow-other-keys)
+(defmethod initialize-instance :after ((sqs connection-pooling-sqs)
+				       &rest initargs &key &allow-other-keys)
   (declare (ignore initargs))
-  (setf (sqs-connection-pool sqs) (make-connection-pool (sqs-pool-size sqs))))
+  (setf (sqs-connection-pool sqs)
+	(make-connection-pool (sqs-pool-size sqs))))
 
 (defgeneric close-sqs (sqs))
 

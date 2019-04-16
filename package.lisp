@@ -32,6 +32,7 @@
   (:export
    #:*sqs*
    #:awscredentials
+   #:make-aws-credentials
    #:sqs
    #:connection-pooling-sqs
    #:with-cached-stream
@@ -63,6 +64,7 @@
    #:batch-message-delete-entry
    ;; message attributes in batch request
    #:message-attribute
+   #:make-message-attribute
    #:message-attribute-name
    #:message-attribute-type
    #:message-attribute-value
@@ -78,12 +80,15 @@
    ;; batch results
    #:delete-message-batch-result
    #:send-message-batch-result
+   #:make-visibility
    #:change-message-visibility-batch-result
    ;; Amazon API calls
    #:load-aws-credentials
+   #:make-permission
    #:add-permission
    #:change-message-visibility
    #:change-message-visibility-batch
+   #:make-queue-attribute
    #:create-queue
    #:delete-message
    #:delete-message-batch

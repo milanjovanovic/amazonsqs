@@ -71,8 +71,19 @@
 	    complex-values
 	    (alexandria:iota (length complex-values) :start 1))))
 
+(defmethod create-message-attribute-parameters (prefix index plist))
 
-(defun create-message-attribute-parameters (prefix index plist)
+(defmethod create-message-attribute-parameters (prefix index (attr message-attribute))
+  (flet ((parameter-name (field)
+	   (format nil "~A~A.~A.~A" prefix
+		   "MessageAttribute" index field)))
+    (let ((atype (attribute-type-as-string (message-attribute-type attr)))
+	  (avalue-name (attribute-type-as-value-type-string (message-attribute-type attr))))
+      (list (cons (parameter-name "Name") (message-attribute-name attr))
+	    (cons (parameter-name avalue-name) (message-attribute-value attr) )
+	    (cons (parameter-name "Value.DataType") atype)))))
+
+(defmethod create-message-attribute-parameters (prefix index (plist list))
   (flet ((parameter-name (field)
 	   (format nil "~A~A.~A.~A" prefix
 		   "MessageAttribute" index field)))
